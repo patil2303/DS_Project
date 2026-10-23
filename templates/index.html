@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Drowsiness Safety Monitor</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Smooth hardware accelerated transitions */
+        .smooth-transition {
+            transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Critical alert pulse */
+        @keyframes alert-pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+            }
+            50% {
+                box-shadow: 0 0 0 14px rgba(239, 68, 68, 0);
+            }
+        }
+        .critical-ring {
+            animation: alert-pulse 1.4s infinite cubic-bezier(0.4, 0, 0.6, 1);
+        }
+
+        /* Custom crisp scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-900">
+
+    <!-- Bright Executive Navbar -->
+    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-50 px-6 py-3.5 shadow-sm shadow-slate-100/60 backdrop-blur-md bg-white/95">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3.5">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shadow-sm">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base font-bold text-slate-900 tracking-tight">Driver Drowsiness Detection</h1>
+                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80">Active AI Monitor</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-normal">Real-Time Facial Landmark & Eye Closure Telemetry</p>
+                </div>
+            </div>
+
+            <!-- Top Right Action Controls -->
+            <div class="flex items-center space-x-3">
+                <!-- Browser Audio Toggle -->
+                <button id="toggleAudioBtn" class="smooth-transition flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm active:scale-95">
+                    <i data-lucide="volume-2" id="volumeIcon" class="w-4 h-4 text-emerald-600"></i>
+                    <span id="volumeText">Audio Alarm: ON</span>
+                </button>
+                <!-- Test Alarm Button -->
+                <button id="testAlarmBtn" class="smooth-transition flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200/90 text-amber-800 text-xs font-semibold shadow-sm active:scale-95">
+                    <i data-lucide="bell" class="w-4 h-4 text-amber-600"></i>
+                    <span>Test Alarm</span>
+                </button>
+                <!-- Live Clock -->
+                <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-600">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                    <span id="clockDisplay">--:--:--</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Video Feed & Hardware Controls (7 cols) -->
+        <div class="lg:col-span-7 flex flex-col space-y-4">
+            
+            <!-- Video Player Card -->
+            <div class="bg-white rounded-2xl p-2.5 border border-slate-200/90 shadow-md shadow-slate-200/40 relative">
+                <div id="videoContainer" class="relative rounded-xl overflow-hidden aspect-[4/3] bg-slate-900 flex items-center justify-center shadow-inner">
+                    <img id="videoFeed" src="/video_feed" alt="Webcam Stream" class="w-full h-full object-cover smooth-transition" style="will-change: contents;">
+                    
+                    <!-- Offline Camera Overlay -->
+                    <div id="videoPlaceholder" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-100/95 text-slate-500 backdrop-blur-sm">
+                        <div class="w-16 h-16 rounded-2xl bg-white shadow-sm border border-slate-200 flex items-center justify-center mb-3 text-slate-400">
+                            <i data-lucide="video-off" class="w-8 h-8"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-700">Camera Feed Paused</p>
+                        <p class="text-xs text-slate-400 mt-1">Press "Start Camera" below to resume live tracking</p>
+                    </div>
+
+                    <!-- Floating Top HUD (Bright Translucent Pill) -->
+                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+                        <div class="flex items-center space-x-2 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200/80 shadow-sm text-xs font-mono">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                            <span id="fpsBadge" class="text-slate-700 font-bold">FPS: --</span>
+                        </div>
+
+                        <div id="alertBanner" class="hidden px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-600 text-white shadow-lg critical-ring">
+                            🚨 CRITICAL: WAKE UP!
+                        </div>
+                    </div>
+
+                    <!-- Floating Bottom HUD -->
+                    <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-200/80 shadow-sm text-xs font-mono text-slate-700">
+                        <div>EAR: <span id="hudEar" class="text-indigo-600 font-bold">0.00</span></div>
+                        <div>STATE: <span id="hudStatus" class="font-bold text-emerald-600">NORMAL</span></div>
+                        <div>EYES: <span id="hudEyes" class="font-bold text-slate-900">OPEN</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camera Controls & Device Selector Bar -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm flex items-center justify-between flex-wrap gap-3">
+                <div class="flex items-center space-x-2.5 flex-wrap gap-2">
+                    <button id="startBtn" class="smooth-transition flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-200">
+                        <i data-lucide="play" class="w-4 h-4"></i>
+                        <span>Start Camera</span>
+                    </button>
+                    <button id="stopBtn" class="smooth-transition flex items-center space-x-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm shadow-rose-200">
+                        <i data-lucide="square" class="w-4 h-4"></i>
+                        <span>Stop Camera</span>
+                    </button>
+                    
+                    <!-- Device Selector Dropdown -->
+                    <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium">
+                        <i data-lucide="camera" class="w-4 h-4 text-indigo-600"></i>
+                        <select id="cameraSelect" class="bg-transparent text-slate-700 font-medium outline-none cursor-pointer pr-1">
+                            <option value="0">USB Video Device (Laptop Camera)</option>
+                        </select>
+                    </div>
+
+                    <!-- Mirror Mode Toggle -->
+                    <button id="mirrorBtn" title="Toggle Mirror View" class="smooth-transition p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl active:scale-95 shadow-sm">
+                        <i data-lucide="flip-horizontal" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <div>
+                    <a href="/api/download_csv" class="smooth-transition flex items-center space-x-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-sm">
+                        <i data-lucide="download" class="w-4 h-4 text-indigo-600"></i>
+                        <span>Export CSV Log</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Smooth Real-time EAR Waveform -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                        <i data-lucide="activity" class="w-4 h-4 text-indigo-600"></i>
+                        Eye Aspect Ratio (EAR) Real-time Waveform
+                    </h3>
+                    <div class="flex items-center space-x-3 text-xs font-mono">
+                        <span class="flex items-center gap-1.5 text-slate-500">
+                            <span class="w-2.5 h-0.5 bg-indigo-600 rounded"></span> Smoothed EAR
+                        </span>
+                        <span class="flex items-center gap-1.5 text-rose-500 font-semibold">
+                            <span class="w-2.5 h-0.5 bg-rose-500 rounded border-dashed"></span> Threshold: <span id="earThreshLabel">0.20</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="h-36 w-full">
+                    <canvas id="earChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Safety Telemetry & Gauges (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col space-y-4">
+            
+            <!-- Driver State Status Hero Card -->
+            <div id="statusCard" class="bg-white p-5 rounded-2xl border-2 border-emerald-500/80 shadow-md shadow-emerald-50 smooth-transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Driver Attention Status</span>
+                        <h2 id="mainStatusText" class="text-3xl font-extrabold tracking-tight text-emerald-600 mt-0.5">NORMAL</h2>
+                    </div>
+                    <div id="statusIconBox" class="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm smooth-transition">
+                        <i data-lucide="smile" id="statusIcon" class="w-8 h-8"></i>
+                    </div>
+                </div>
+                <p id="statusDesc" class="text-xs text-slate-500 mt-3 leading-relaxed font-normal">
+                    Driver is fully alert with eyes open. Optimal driving conditions maintained.
+                </p>
+            </div>
+
+            <!-- Drowsiness Level Risk Meter -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Drowsiness Risk Index</span>
+                    <span id="drowsinessVal" class="text-2xl font-black font-mono text-slate-900">0%</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200/60 p-0.5">
+                    <div id="drowsinessBar" class="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-600 smooth-transition" style="width: 0%; transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-mono text-slate-400 mt-1.5">
+                    <span class="text-emerald-600 font-semibold">0% Normal</span>
+                    <span class="text-amber-600 font-semibold">50% Warning</span>
+                    <span class="text-orange-600 font-semibold">70% High</span>
+                    <span class="text-rose-600 font-semibold">100% Critical</span>
+                </div>
+            </div>
+
+            <!-- Metric Cards 2x2 Grid -->
+            <div class="grid grid-cols-2 gap-3.5">
+                
+                <!-- Eyes State Card -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 mb-1">
+                        <span class="text-xs font-medium">Eyes Position</span>
+                        <i data-lucide="eye" class="w-4 h-4 text-indigo-500"></i>
+                    </div>
+                    <div id="eyesStateBadge" class="text-xl font-extrabold text-slate-800 flex items-center gap-2 mt-0.5">
+                        <span id="eyesDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <span id="eyesStateText">OPEN</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1.5 font-mono">EAR: <span id="earVal" class="font-bold text-slate-700">0.300</span></p>
+                </div>
+
+                <!-- Closed Frames Card -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 mb-1">
+                        <span class="text-xs font-medium">Closed Frames</span>
+                        <i data-lucide="layers" class="w-4 h-4 text-indigo-500"></i>
+                    </div>
+                    <div id="closedFramesVal" class="text-xl font-extrabold font-mono text-slate-800 mt-0.5">0</div>
+                    <p class="text-[11px] text-slate-400 mt-1.5">Consecutive closed</p>
+                </div>
+
+                <!-- Drive Duration Card -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 mb-1">
+                        <span class="text-xs font-medium">Session Duration</span>
+                        <i data-lucide="timer" class="w-4 h-4 text-indigo-500"></i>
+                    </div>
+                    <div id="sessionDurationVal" class="text-xl font-extrabold font-mono text-slate-800 mt-0.5">0.0 m</div>
+                    <p class="text-[11px] text-slate-400 mt-1.5">Continuous runtime</p>
+                </div>
+
+                <!-- Alerts Count Card -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 mb-1">
+                        <span class="text-xs font-medium">Total Incidents</span>
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
+                    </div>
+                    <div id="totalAlertsVal" class="text-xl font-extrabold font-mono text-rose-600 mt-0.5">0</div>
+                    <p class="text-[11px] text-slate-400 mt-1.5">Alerts triggered</p>
+                </div>
+
+            </div>
+
+            <!-- Sensitivity Calibration Drawer -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3.5">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <i data-lucide="sliders" class="w-4 h-4 text-indigo-600"></i>
+                        Sensitivity Calibration
+                    </h3>
+                    <span class="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Live Tune</span>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <div class="flex justify-between text-slate-600 font-medium mb-1">
+                            <span>Eye Closure Threshold (EAR)</span>
+                            <span id="earThreshVal" class="font-mono text-indigo-600 font-bold">0.20</span>
+                        </div>
+                        <input id="earSlider" type="range" min="0.10" max="0.35" step="0.01" value="0.20" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-slate-600 font-medium mb-1">
+                            <span>Warning Alert Frames (~0.5s)</span>
+                            <span id="alertFramesVal" class="font-mono text-indigo-600 font-bold">15</span>
+                        </div>
+                        <input id="alertFramesSlider" type="range" min="5" max="30" step="1" value="15" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-slate-600 font-medium mb-1">
+                            <span>Critical Wakeup Frames (~1.5s)</span>
+                            <span id="criticalFramesVal" class="font-mono text-indigo-600 font-bold">45</span>
+                        </div>
+                        <input id="criticalFramesSlider" type="range" min="20" max="90" step="5" value="45" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+
+                    <button id="applySettingsBtn" class="smooth-transition w-full mt-2 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl font-bold transition text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95">
+                        <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                        <span>Apply Sensitivity Calibration</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Email Notification Status -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm text-xs flex items-center justify-between text-slate-500">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="mail" class="w-4 h-4 text-indigo-500"></i>
+                    <span class="font-medium text-slate-700">Emergency SMTP Dispatch</span>
+                </div>
+                <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-mono text-[11px] font-semibold">Configured (.env)</span>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Clean Light Footer -->
+    <footer class="border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-400 font-medium">
+        Driver Drowsiness Alert System &bull; MediaPipe Face Mesh & OpenCV &bull; AIDS Final Year Project
+    </footer>
+
+    <!-- Web Audio & Client Controller Logic -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Web Audio Synthesizer
+        let audioContext = null;
+        let isAudioMuted = false;
+
+        function getAudioContext() {
+            if (!audioContext) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContext();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            return audioContext;
+        }
+
+        // Auto-unlock AudioContext on first user interaction
+        window.addEventListener('click', () => { getAudioContext(); }, { once: true });
+        window.addEventListener('keydown', () => { getAudioContext(); }, { once: true });
+
+        function playTone(frequency, duration, type = "sine") {
+            if (isAudioMuted) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + duration);
+            } catch (err) {
+                console.warn("Audio play prevented:", err);
+            }
+        }
+
+        let activeDangerLevel = "NORMAL";
+        let alarmIntervalTimer = null;
+
+        function runDangerAlarm() {
+            if (isAudioMuted || activeDangerLevel === "NORMAL") return;
+
+            if (activeDangerLevel === "CRITICAL") {
+                // Immediate piercing alarm burst for critical danger
+                playTone(1600, 0.12, "sawtooth");
+                setTimeout(() => playTone(1600, 0.12, "sawtooth"), 130);
+                setTimeout(() => playTone(1600, 0.16, "sawtooth"), 260);
+            } else if (activeDangerLevel === "HIGH") {
+                // Immediate double warning pulse
+                playTone(1100, 0.18, "square");
+                setTimeout(() => playTone(1100, 0.18, "square"), 200);
+            } else if (activeDangerLevel === "WARNING") {
+                // Prompt warning chirp
+                playTone(850, 0.25, "triangle");
+            }
+        }
+
+        function setDangerState(newLevel) {
+            const previousLevel = activeDangerLevel;
+            activeDangerLevel = newLevel;
+
+            if (newLevel === "NORMAL") {
+                if (alarmIntervalTimer) {
+                    clearInterval(alarmIntervalTimer);
+                    alarmIntervalTimer = null;
+                }
+                return;
+            }
+
+            // If entering danger or danger level escalated:
+            if (!alarmIntervalTimer || previousLevel !== newLevel) {
+                if (alarmIntervalTimer) clearInterval(alarmIntervalTimer);
+
+                // FIRE IMMEDIATELY (0ms delay) on the exact instant danger is sensed!
+                runDangerAlarm();
+
+                // Repeat continuously while danger persists
+                const intervalMs = (newLevel === "CRITICAL") ? 420 : (newLevel === "HIGH") ? 700 : 1200;
+                alarmIntervalTimer = setInterval(runDangerAlarm, intervalMs);
+            }
+        }
+
+        // Test Sound Button
+        document.getElementById("testAlarmBtn").addEventListener("click", () => {
+            getAudioContext();
+            setDangerState("CRITICAL");
+            setTimeout(() => setDangerState("NORMAL"), 1800);
+        });
+
+        // Audio Mute Toggle
+        const toggleAudioBtn = document.getElementById("toggleAudioBtn");
+        const volumeIcon = document.getElementById("volumeIcon");
+        const volumeText = document.getElementById("volumeText");
+
+        toggleAudioBtn.addEventListener("click", () => {
+            isAudioMuted = !isAudioMuted;
+            if (isAudioMuted) {
+                volumeText.textContent = "Audio Alarm: MUTED";
+                volumeIcon.classList.remove("text-emerald-600");
+                volumeIcon.classList.add("text-rose-600");
+                volumeIcon.setAttribute("data-lucide", "volume-x");
+            } else {
+                volumeText.textContent = "Audio Alarm: ON";
+                volumeIcon.classList.remove("text-rose-600");
+                volumeIcon.classList.add("text-emerald-600");
+                volumeIcon.setAttribute("data-lucide", "volume-2");
+            }
+            lucide.createIcons();
+        });
+
+        // Live Clock
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById("clockDisplay").textContent = now.toLocaleTimeString();
+        }, 1000);
+
+        // Chart.js Light Theme Configuration
+        const ctx = document.getElementById('earChart').getContext('2d');
+        const earChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(25).fill(''),
+                datasets: [
+                    {
+                        label: 'EAR',
+                        data: Array(25).fill(0.3),
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.08)',
+                        borderWidth: 2.2,
+                        tension: 0.35,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Threshold',
+                        data: Array(25).fill(0.20),
+                        borderColor: '#f43f5e',
+                        borderWidth: 1.8,
+                        borderDash: [5, 4],
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { display: false },
+                    y: {
+                        min: 0.05,
+                        max: 0.45,
+                        grid: { color: '#f1f5f9' },
+                        ticks: { color: '#64748b', font: { size: 10, family: 'JetBrains Mono' } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Telemetry Poller
+        async function fetchStatus() {
+            try {
+                const res = await fetch("/api/status");
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // Video HUD
+                document.getElementById("fpsBadge").textContent = `FPS: ${data.fps || '--'}`;
+                document.getElementById("hudEar").textContent = (data.ear || 0).toFixed(2);
+                document.getElementById("hudStatus").textContent = data.level || "NORMAL";
+                document.getElementById("hudEyes").textContent = data.eyes_status || "OPEN";
+
+                // Metrics
+                document.getElementById("earVal").textContent = (data.ear || 0).toFixed(3);
+                document.getElementById("closedFramesVal").textContent = data.closed_frames || 0;
+                document.getElementById("drowsinessVal").textContent = `${Math.round(data.drowsiness || 0)}%`;
+                document.getElementById("drowsinessBar").style.width = `${Math.min(100, data.drowsiness || 0)}%`;
+
+                // Eyes state badge
+                const eyesStateText = document.getElementById("eyesStateText");
+                const eyesDot = document.getElementById("eyesDot");
+                eyesStateText.textContent = data.eyes_status || "OPEN";
+                if (data.eyes_status === "CLOSED") {
+                    eyesStateText.className = "text-xl font-extrabold text-rose-600";
+                    eyesDot.className = "w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse";
+                } else {
+                    eyesStateText.className = "text-xl font-extrabold text-slate-800";
+                    eyesDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+                }
+
+                // Session stats
+                if (data.stats) {
+                    document.getElementById("sessionDurationVal").textContent = `${data.stats.duration_minutes} m`;
+                    document.getElementById("totalAlertsVal").textContent = data.stats.total_alerts;
+                }
+
+                // Update Status Hero Card
+                const statusCard = document.getElementById("statusCard");
+                const mainStatusText = document.getElementById("mainStatusText");
+                const statusIconBox = document.getElementById("statusIconBox");
+                const statusIcon = document.getElementById("statusIcon");
+                const statusDesc = document.getElementById("statusDesc");
+                const alertBanner = document.getElementById("alertBanner");
+
+                mainStatusText.textContent = data.level;
+
+                if (data.level === "CRITICAL") {
+                    statusCard.className = "bg-rose-50/90 p-5 rounded-2xl border-2 border-rose-500 shadow-xl shadow-rose-100 critical-ring smooth-transition";
+                    mainStatusText.className = "text-3xl font-extrabold tracking-tight text-rose-600 mt-0.5";
+                    statusIconBox.className = "w-14 h-14 rounded-2xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-600 shadow-sm smooth-transition";
+                    statusIcon.setAttribute("data-lucide", "alert-octagon");
+                    statusDesc.textContent = "CRITICAL HAZARD! Driver eyes closed over 1.5 seconds. Immediate wakeup action triggered!";
+                    alertBanner.classList.remove("hidden");
+                } else if (data.level === "HIGH") {
+                    statusCard.className = "bg-amber-50/90 p-5 rounded-2xl border-2 border-amber-500 shadow-lg shadow-amber-50 smooth-transition";
+                    mainStatusText.className = "text-3xl font-extrabold tracking-tight text-amber-600 mt-0.5";
+                    statusIconBox.className = "w-14 h-14 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-600 shadow-sm smooth-transition";
+                    statusIcon.setAttribute("data-lucide", "alert-triangle");
+                    statusDesc.textContent = "HIGH Drowsiness detected. Driver focus deteriorating. Rest recommended.";
+                    alertBanner.classList.add("hidden");
+                } else if (data.level === "WARNING") {
+                    statusCard.className = "bg-yellow-50/90 p-5 rounded-2xl border-2 border-yellow-400 shadow-md shadow-yellow-50 smooth-transition";
+                    mainStatusText.className = "text-3xl font-extrabold tracking-tight text-yellow-600 mt-0.5";
+                    statusIconBox.className = "w-14 h-14 rounded-2xl bg-yellow-100 border border-yellow-300 flex items-center justify-center text-yellow-600 shadow-sm smooth-transition";
+                    statusIcon.setAttribute("data-lucide", "eye-off");
+                    statusDesc.textContent = "Caution: Eyes closed momentarily (>0.5s). Monitoring driver attention.";
+                    alertBanner.classList.add("hidden");
+                } else {
+                    statusCard.className = "bg-white p-5 rounded-2xl border-2 border-emerald-500/80 shadow-md shadow-emerald-50 smooth-transition";
+                    mainStatusText.className = "text-3xl font-extrabold tracking-tight text-emerald-600 mt-0.5";
+                    statusIconBox.className = "w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm smooth-transition";
+                    statusIcon.setAttribute("data-lucide", "smile");
+                    statusDesc.textContent = "Driver is fully alert with eyes open. Optimal driving conditions maintained.";
+                    alertBanner.classList.add("hidden");
+                }
+                lucide.createIcons();
+
+                // Instant danger sound trigger (Zero-lag real-time state machine)
+                setDangerState(data.level || "NORMAL");
+
+                // Update Chart
+                if (data.history && data.history.length > 0) {
+                    const earValues = data.history.map(h => h.ear);
+                    const thresholdValues = Array(earValues.length).fill(data.ear_threshold || 0.20);
+                    earChart.data.labels = data.history.map(h => h.t);
+                    earChart.data.datasets[0].data = earValues;
+                    earChart.data.datasets[1].data = thresholdValues;
+                    earChart.update('none');
+                }
+
+            } catch (err) {
+                console.error("Telemetry error:", err);
+            }
+        }
+
+        // Fast telemetry polling (80ms for instant real-time response)
+        setInterval(fetchStatus, 80);
+
+        // Control Buttons & Camera Selection
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+        const mirrorBtn = document.getElementById("mirrorBtn");
+        const cameraSelect = document.getElementById("cameraSelect");
+        const videoFeed = document.getElementById("videoFeed");
+        const videoPlaceholder = document.getElementById("videoPlaceholder");
+
+        async function loadCameras() {
+            try {
+                const res = await fetch("/api/cameras");
+                if (res.ok) {
+                    const devices = await res.json();
+                    cameraSelect.innerHTML = "";
+                    devices.forEach(dev => {
+                        const opt = document.createElement("option");
+                        opt.value = dev.id;
+                        opt.textContent = `${dev.name} (Index ${dev.id})`;
+                        cameraSelect.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.warn("Could not load camera list:", e);
+            }
+        }
+        loadCameras();
+
+        cameraSelect.addEventListener("change", async (e) => {
+            const selectedIdx = parseInt(e.target.value);
+            await fetch("/api/control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "switch_camera", camera_index: selectedIdx })
+            });
+            videoFeed.src = "/video_feed?" + new Date().getTime();
+        });
+
+        mirrorBtn.addEventListener("click", async () => {
+            await fetch("/api/control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "toggle_mirror" })
+            });
+        });
+
+        startBtn.addEventListener("click", async () => {
+            getAudioContext();
+            const selectedIdx = parseInt(cameraSelect.value) || 0;
+            await fetch("/api/control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "start", camera_index: selectedIdx })
+            });
+            videoFeed.src = "/video_feed?" + new Date().getTime();
+            videoPlaceholder.classList.add("hidden");
+            videoFeed.classList.remove("hidden");
+        });
+
+        stopBtn.addEventListener("click", async () => {
+            await fetch("/api/control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "stop" })
+            });
+            videoFeed.src = "";
+            videoFeed.classList.add("hidden");
+            videoPlaceholder.classList.remove("hidden");
+        });
+
+        // Sensitivity Sliders
+        const earSlider = document.getElementById("earSlider");
+        const alertFramesSlider = document.getElementById("alertFramesSlider");
+        const criticalFramesSlider = document.getElementById("criticalFramesSlider");
+        const applySettingsBtn = document.getElementById("applySettingsBtn");
+
+        earSlider.addEventListener("input", (e) => {
+            document.getElementById("earThreshVal").textContent = e.target.value;
+            document.getElementById("earThreshLabel").textContent = e.target.value;
+        });
+
+        alertFramesSlider.addEventListener("input", (e) => {
+            document.getElementById("alertFramesVal").textContent = e.target.value;
+        });
+
+        criticalFramesSlider.addEventListener("input", (e) => {
+            document.getElementById("criticalFramesVal").textContent = e.target.value;
+        });
+
+        applySettingsBtn.addEventListener("click", async () => {
+            const res = await fetch("/api/control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "update_settings",
+                    ear_threshold: parseFloat(earSlider.value),
+                    alert_frames: parseInt(alertFramesSlider.value),
+                    critical_frames: parseInt(criticalFramesSlider.value)
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                applySettingsBtn.classList.remove("bg-indigo-50", "text-indigo-700");
+                applySettingsBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-300");
+                setTimeout(() => {
+                    applySettingsBtn.classList.remove("bg-emerald-50", "text-emerald-700", "border-emerald-300");
+                    applySettingsBtn.classList.add("bg-indigo-50", "text-indigo-700");
+                }, 1500);
+            }
+        });
+    </script>
+</body>
+</html>

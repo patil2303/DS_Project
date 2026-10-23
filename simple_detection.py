@@ -33,17 +33,17 @@ class SimpleDrowsinessDetector:
         self.LEFT_EYE = [362, 385, 387, 263, 373, 380]
         self.RIGHT_EYE = [33, 160, 158, 133, 153, 144]
         
-        # Detection settings - VERY SENSITIVE
-        self.EAR_THRESHOLD = 0.20  # Below this = eyes closed
-        self.ALERT_FRAMES = 15  # Frames before alert (~0.5 sec at 30fps)
-        self.CRITICAL_FRAMES = 45  # Frames before critical (~1.5 sec)
+        # Detection settings - HIGH RESPONSIVENESS (Zero Lag)
+        self.EAR_THRESHOLD = 0.22  # Below this = eyes closed
+        self.ALERT_FRAMES = 8     # Fast trigger (~0.4 sec at 20fps, beyond a natural blink)
+        self.CRITICAL_FRAMES = 24 # Fast critical trigger (~1.2 sec)
         
         # State tracking
         self.closed_frames = 0
         self.total_frames = 0
         self.alert_active = False
         self.last_alert_time = 0
-        self.alert_cooldown = 3  # seconds between alerts
+        self.alert_cooldown = 0.8  # Minimal cooldown for prompt re-alerting
         self.last_high_email_time = 0
         self.high_email_cooldown = 60  # seconds between HIGH email alerts
         self.critical_episode_active = False
@@ -56,9 +56,9 @@ class SimpleDrowsinessDetector:
         self.alerts = []
         self.ear_history = deque(maxlen=100)
         self.last_ear = 0.3
-        self.detection_interval = max(1, int(os.getenv("DETECTION_INTERVAL_FRAMES", "2").strip()))
+        self.detection_interval = max(1, int(os.getenv("DETECTION_INTERVAL_FRAMES", "1").strip()))
         self.process_scale = max(0.3, min(1.0, float(os.getenv("PROCESS_SCALE", "0.5").strip())))
-        self.max_fps = max(5, int(os.getenv("MAX_FPS", "20").strip()))
+        self.max_fps = max(5, int(os.getenv("MAX_FPS", "25").strip()))
         
         # CSV export
         self.csv_file = f"drowsiness_log_{self.session_start.strftime('%Y%m%d_%H%M%S')}.csv"
@@ -637,7 +637,10 @@ def main():
     """Main detection loop"""
     print("\n[INFO] Initializing camera...")
     
-    cap = cv2.VideoCapture(0)
+    # Prefer DirectShow on Windows to select physical webcam over virtual drivers like DroidCam
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("[ERROR] Could not open camera!")
         return
