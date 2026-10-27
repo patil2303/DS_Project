@@ -1,0 +1,6 @@
+# Driver Drowsiness Detection - Local Requirements
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+numpy>=1.24.0
+flask>=3.0.0
+pygrabber>=0.2
