@@ -223,6 +223,12 @@
                         <i data-lucide="square" class="w-4 h-4"></i>
                         <span>Stop Camera</span>
                     </button>
+
+                    <!-- Emergency Contact Email Button -->
+                    <button id="addEmailBtnBar" class="smooth-transition flex items-center space-x-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm shadow-rose-200">
+                        <i data-lucide="mail-plus" class="w-4 h-4"></i>
+                        <span id="btnBarEmailText">Emergency Email (SOS)</span>
+                    </button>
                     
                     <!-- Device Selector Dropdown -->
                     <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium">
@@ -515,6 +521,8 @@
         const cardEditEmailBtn = document.getElementById("cardEditEmailBtn");
         const cardEmailText = document.getElementById("cardEmailText");
         const navEmailText = document.getElementById("navEmailText");
+        const addEmailBtnBar = document.getElementById("addEmailBtnBar");
+        const btnBarEmailText = document.getElementById("btnBarEmailText");
         const sleepIncidentVal = document.getElementById("sleepIncidentVal");
         const lastEmailDispatchVal = document.getElementById("lastEmailDispatchVal");
 
@@ -524,11 +532,13 @@
                 cardEmailText.textContent = emergencyEmail;
                 cardEmailText.className = "text-xs font-bold text-rose-700 font-mono truncate";
                 navEmailText.textContent = `SOS: ${emergencyEmail}`;
+                if (btnBarEmailText) btnBarEmailText.textContent = `SOS: ${emergencyEmail}`;
                 emergencyEmailInput.value = emergencyEmail;
             } else {
                 cardEmailText.textContent = "Click to Set Contact";
                 cardEmailText.className = "text-xs font-bold text-slate-400 font-mono truncate italic";
                 navEmailText.textContent = "Set Emergency Email";
+                if (btnBarEmailText) btnBarEmailText.textContent = "+ Set Emergency Email";
                 emergencyEmailInput.value = "";
             }
         }
@@ -545,6 +555,7 @@
         }
 
         openEmailModalBtn.addEventListener("click", openModal);
+        if (addEmailBtnBar) addEmailBtnBar.addEventListener("click", openModal);
         cardEditEmailBtn.addEventListener("click", openModal);
         closeEmailModalBtn.addEventListener("click", closeModal);
         emailModal.addEventListener("click", (e) => {
@@ -985,22 +996,6 @@
                     // Smooth EAR with exponential moving average
                     smoothedEar = 0.4 * rawEar + 0.6 * smoothedEar;
                     ear = smoothedEar;
-
-                    // Draw eye contours
-                    ctx.strokeStyle = (ear < EAR_THRESHOLD) ? "#ef4444" : "#10b981";
-                    ctx.lineWidth = 2;
-                    [LEFT_EYE, RIGHT_EYE].forEach(eye => {
-                        ctx.beginPath();
-                        eye.forEach((idx, i) => {
-                            let x = landmarks[idx].x * canvas.width;
-                            const y = landmarks[idx].y * canvas.height;
-                            if (mirrorMode) x = canvas.width - x;
-                            if (i === 0) ctx.moveTo(x, y);
-                            else ctx.lineTo(x, y);
-                        });
-                        ctx.closePath();
-                        ctx.stroke();
-                    });
                 }
             }
 
