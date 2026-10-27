@@ -302,6 +302,72 @@ def api_control():
     
     return jsonify({"error": "Unknown action"}), 400
 
+@app.route("/api/send-alert", methods=["POST"])
+def send_alert_api():
+    """API endpoint to dispatch emergency sleep/faint email alerts"""
+    data = request.get_json() or {}
+    to_email = data.get("to_email", "driverdrowsiness001@gmail.com").strip()
+    level = data.get("level", "CRITICAL")
+    drowsiness = data.get("drowsiness", 100)
+    closed_seconds = data.get("closed_seconds", 2.0)
+    incident_type = data.get("incident_type", "DRIVER_ASLEEP_OR_FAINTED")
+    timestamp = data.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "587").strip())
+    sender_email = os.getenv("SENDER_EMAIL", "driverdrowsiness001@gmail.com").strip()
+    sender_password = os.getenv("SENDER_PASSWORD", "").strip()
+
+    email_sent = False
+    status_message = ""
+
+    if sender_email and sender_password:
+        try:
+            import smtplib
+            from email.message import EmailMessage
+            msg = EmailMessage()
+            msg["Subject"] = f"🚨 SOS ALERT: Driver {level} - Sleep/Faint Detected"
+            msg["From"] = sender_email
+            msg["To"] = to_email
+            content = (
+                "══════════════════════════════════════════════════\n"
+                "   🚨 DRIVER DROWSINESS & SAFETY EMERGENCY ALERT\n"
+                "══════════════════════════════════════════════════\n\n"
+                f"Status: {level}\n"
+                f"Incident: {incident_type}\n"
+                f"Detection Time: {timestamp}\n"
+                f"Eyes Closed Duration: {closed_seconds:.1f} seconds\n"
+                f"Drowsiness Risk: {drowsiness}%\n\n"
+                "⚠️ WARNING:\n"
+                "The driver appears to have fallen asleep or lost consciousness.\n"
+                "Immediate contact or intervention is strongly recommended.\n\n"
+                "══════════════════════════════════════════════════\n"
+                "Automated safety alert from Driver Drowsiness Alert System"
+            )
+            msg.set_content(content)
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+            email_sent = True
+            status_message = f"Emergency alert email successfully dispatched to {to_email}"
+        except Exception as e:
+            status_message = f"SMTP error while sending to {to_email}: {str(e)}"
+    else:
+        status_message = (
+            f"Emergency alert registered for {to_email}. "
+            "To send live emails via Gmail, configure SENDER_EMAIL and SENDER_PASSWORD in environment variables."
+        )
+
+    return jsonify({
+        "success": True,
+        "email_sent": email_sent,
+        "recipient": to_email,
+        "message": status_message,
+        "timestamp": timestamp,
+        "incident": incident_type
+    })
+
 @app.route("/api/download_csv")
 def download_csv():
     state = stream_manager.get_state()

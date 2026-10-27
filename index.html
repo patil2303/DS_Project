@@ -36,6 +36,20 @@
             animation: alert-pulse 1.4s infinite cubic-bezier(0.4, 0, 0.6, 1);
         }
 
+        @keyframes toast-in {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .toast-animate {
+            animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -51,8 +65,65 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-20 right-6 z-50 flex flex-col space-y-2.5 pointer-events-none max-w-sm w-full"></div>
+
+    <!-- Emergency Email Modal -->
+    <div id="emailModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 smooth-transition">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shadow-sm">
+                        <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Emergency SOS Contact</h3>
+                        <p class="text-xs text-slate-400">Automated alerts when driver sleeps or faints</p>
+                    </div>
+                </div>
+                <button id="closeEmailModalBtn" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- System Sender Info -->
+                <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <span class="text-slate-500 font-medium">Dispatched From:</span>
+                    <span class="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">driverdrowsiness001@gmail.com</span>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1.5">Where Should SOS Alerts Be Sent?</label>
+                    <input id="emergencyEmailInput" type="email" placeholder="Enter emergency recipient email (e.g. family@gmail.com)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono text-xs focus:ring-2 focus:ring-rose-400 focus:outline-none">
+                    <p class="text-[11px] text-slate-400 mt-1">If the driver falls asleep or faints (>1.8s closed), an urgent SOS alert is sent from driverdrowsiness001@gmail.com to this address.</p>
+                </div>
+
+                <div class="p-3 bg-rose-50 rounded-xl border border-rose-100 text-rose-800 text-[11px] space-y-1">
+                    <p class="font-bold flex items-center gap-1 text-rose-900">
+                        <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+                        Automated Trigger Conditions:
+                    </p>
+                    <p>&bull; Driver eyes closed continuously for &ge; 1.8s (Sleep / Faint detected)</p>
+                    <p>&bull; Driver dozes off &ge; 3 times in a single drive (Fatigue alert)</p>
+                </div>
+
+                <div class="flex items-center space-x-2 pt-2">
+                    <button id="saveEmailBtn" class="smooth-transition flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Save Emergency Email</span>
+                    </button>
+                    <button id="modalTestEmailBtn" class="smooth-transition px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95">
+                        <i data-lucide="send" class="w-3.5 h-3.5 text-rose-600"></i>
+                        <span>Send Test</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bright Executive Navbar -->
-    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-50 px-6 py-3.5 shadow-sm shadow-slate-100/60 backdrop-blur-md bg-white/95">
+    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-40 px-6 py-3.5 shadow-sm shadow-slate-100/60 backdrop-blur-md bg-white/95">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
             <div class="flex items-center space-x-3.5">
                 <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shadow-sm">
@@ -68,19 +139,28 @@
             </div>
 
             <!-- Top Right Action Controls -->
-            <div class="flex items-center space-x-3">
-                <!-- Browser Audio Toggle -->
-                <button id="toggleAudioBtn" class="smooth-transition flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm active:scale-95">
-                    <i data-lucide="volume-2" id="volumeIcon" class="w-4 h-4 text-emerald-600"></i>
-                    <span id="volumeText">Audio Alarm: ON</span>
+            <div class="flex items-center space-x-2.5 sm:space-x-3">
+                <!-- Emergency Email Contact Button -->
+                <button id="openEmailModalBtn" class="smooth-transition flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100/90 border border-rose-200/90 text-rose-700 text-xs font-bold shadow-sm active:scale-95">
+                    <i data-lucide="mail-warning" class="w-4 h-4 text-rose-600"></i>
+                    <span id="navEmailText" class="hidden md:inline font-mono">SOS: driverdrowsiness001@gmail.com</span>
+                    <span class="md:hidden">SOS Email</span>
                 </button>
+
+                <!-- Browser Audio Toggle -->
+                <button id="toggleAudioBtn" class="smooth-transition flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm active:scale-95">
+                    <i data-lucide="volume-2" id="volumeIcon" class="w-4 h-4 text-emerald-600"></i>
+                    <span id="volumeText" class="hidden sm:inline">Audio: ON</span>
+                </button>
+
                 <!-- Test Alarm Button -->
                 <button id="testAlarmBtn" class="smooth-transition flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200/90 text-amber-800 text-xs font-semibold shadow-sm active:scale-95">
                     <i data-lucide="bell" class="w-4 h-4 text-amber-600"></i>
                     <span>Test Alarm</span>
                 </button>
+
                 <!-- Live Clock -->
-                <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-600">
+                <div class="hidden lg:flex items-center space-x-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs font-mono font-medium text-slate-600">
                     <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
                     <span id="clockDisplay">--:--:--</span>
                 </div>
@@ -189,7 +269,7 @@
 
         </div>
 
-        <!-- Right Column: Safety Telemetry & Gauges (5 cols) -->
+        <!-- Right Column: Safety Telemetry, Emergency SOS, & Gauges (5 cols) -->
         <div class="lg:col-span-5 flex flex-col space-y-4">
             
             <!-- Driver State Status Hero Card -->
@@ -206,6 +286,54 @@
                 <p id="statusDesc" class="text-xs text-slate-500 mt-3 leading-relaxed font-normal">
                     Driver is fully alert with eyes open. Optimal driving conditions maintained.
                 </p>
+            </div>
+
+            <!-- Emergency SOS Email Dispatch Service Card -->
+            <div class="bg-white p-5 rounded-2xl border-2 border-rose-200 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <div class="p-1.5 bg-rose-50 rounded-lg text-rose-600 border border-rose-200">
+                            <i data-lucide="bell-ring" class="w-4 h-4"></i>
+                        </div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Emergency SOS Service</h3>
+                    </div>
+                    <span class="text-[11px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                        Active Armed
+                    </span>
+                </div>
+
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                    <div class="flex items-center justify-between text-[11px] pb-1.5 border-b border-slate-200/60">
+                        <span class="text-slate-400 font-medium">System Sender:</span>
+                        <span class="font-mono font-bold text-slate-700">driverdrowsiness001@gmail.com</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div class="truncate mr-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Alert Recipient (Emergency)</p>
+                            <p id="cardEmailText" class="text-xs font-bold text-rose-700 font-mono truncate">Click to Set Contact</p>
+                        </div>
+                        <button id="cardEditEmailBtn" class="smooth-transition px-2.5 py-1 text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg shadow-sm whitespace-nowrap active:scale-95">
+                            Set / Change
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500 pt-0.5 font-medium">
+                    <div class="p-2 bg-slate-50 rounded-lg border border-slate-200/60">
+                        <span class="text-[10px] text-slate-400 block">Sleep/Faint Incidents</span>
+                        <span id="sleepIncidentVal" class="text-base font-bold font-mono text-rose-600">0</span>
+                    </div>
+                    <div class="p-2 bg-slate-50 rounded-lg border border-slate-200/60">
+                        <span class="text-[10px] text-slate-400 block">Last Dispatch Status</span>
+                        <span id="lastEmailDispatchVal" class="text-xs font-bold font-mono text-slate-700 truncate block mt-0.5">Monitoring</span>
+                    </div>
+                </div>
+
+                <button id="sendTestEmailBtn" class="smooth-transition w-full py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-rose-200">
+                    <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                    <span>Send Test SOS Email to Emergency Contact</span>
+                </button>
             </div>
 
             <!-- Drowsiness Level Risk Meter -->
@@ -310,15 +438,6 @@
                 </div>
             </div>
 
-            <!-- Cloud Architecture Info -->
-            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm text-xs flex items-center justify-between text-slate-500">
-                <div class="flex items-center space-x-2">
-                    <i data-lucide="cloud" class="w-4 h-4 text-indigo-500"></i>
-                    <span class="font-medium text-slate-700">Vercel Serverless Edge</span>
-                </div>
-                <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[11px] font-semibold">WebAssembly GPU</span>
-            </div>
-
         </div>
 
     </main>
@@ -345,6 +464,7 @@
         let EAR_THRESHOLD = 0.22;
         let ALERT_FRAMES = 8;
         let CRITICAL_FRAMES = 24;
+        let SLEEP_FAINT_FRAMES = 35; // ~1.8 seconds of continuous eye closure
 
         let faceLandmarker = null;
         let webcamRunning = false;
@@ -357,6 +477,15 @@
         let smoothedEar = 0.3;
         let sessionStartTime = null;
         let csvRecords = [["Timestamp", "EAR", "Eyes_Status", "Drowsiness_%", "Alert_Level", "Closed_Frames"]];
+
+        // Emergency Email State
+        let emergencyEmail = localStorage.getItem("emergencyContactEmail") || "";
+        const SYSTEM_SENDER_EMAIL = "driverdrowsiness001@gmail.com";
+        let lastEmailSentTime = 0;
+        let emailCooldownMs = 45000; // 45 seconds cooldown
+        let criticalFaintActive = false;
+        let criticalEpisodeStartTime = 0;
+        let sleepIncidentCount = 0;
 
         // Elements
         const video = document.getElementById("webcamVideo");
@@ -374,6 +503,142 @@
         const earSlider = document.getElementById("earSlider");
         const alertFramesSlider = document.getElementById("alertFramesSlider");
         const criticalFramesSlider = document.getElementById("criticalFramesSlider");
+
+        // Emergency UI Elements
+        const emailModal = document.getElementById("emailModal");
+        const openEmailModalBtn = document.getElementById("openEmailModalBtn");
+        const closeEmailModalBtn = document.getElementById("closeEmailModalBtn");
+        const emergencyEmailInput = document.getElementById("emergencyEmailInput");
+        const saveEmailBtn = document.getElementById("saveEmailBtn");
+        const modalTestEmailBtn = document.getElementById("modalTestEmailBtn");
+        const sendTestEmailBtn = document.getElementById("sendTestEmailBtn");
+        const cardEditEmailBtn = document.getElementById("cardEditEmailBtn");
+        const cardEmailText = document.getElementById("cardEmailText");
+        const navEmailText = document.getElementById("navEmailText");
+        const sleepIncidentVal = document.getElementById("sleepIncidentVal");
+        const lastEmailDispatchVal = document.getElementById("lastEmailDispatchVal");
+
+        // Initialize UI with stored email
+        function updateEmailDisplays() {
+            if (emergencyEmail) {
+                cardEmailText.textContent = emergencyEmail;
+                cardEmailText.className = "text-xs font-bold text-rose-700 font-mono truncate";
+                navEmailText.textContent = `SOS: ${emergencyEmail}`;
+                emergencyEmailInput.value = emergencyEmail;
+            } else {
+                cardEmailText.textContent = "Click to Set Contact";
+                cardEmailText.className = "text-xs font-bold text-slate-400 font-mono truncate italic";
+                navEmailText.textContent = "Set Emergency Email";
+                emergencyEmailInput.value = "";
+            }
+        }
+        updateEmailDisplays();
+
+        // Modal Handlers
+        function openModal() {
+            emergencyEmailInput.value = emergencyEmail || "";
+            emailModal.classList.remove("hidden");
+            emergencyEmailInput.focus();
+        }
+        function closeModal() {
+            emailModal.classList.add("hidden");
+        }
+
+        openEmailModalBtn.addEventListener("click", openModal);
+        cardEditEmailBtn.addEventListener("click", openModal);
+        closeEmailModalBtn.addEventListener("click", closeModal);
+        emailModal.addEventListener("click", (e) => {
+            if (e.target === emailModal) closeModal();
+        });
+
+        saveEmailBtn.addEventListener("click", () => {
+            const val = emergencyEmailInput.value.trim();
+            if (val && val.includes("@")) {
+                emergencyEmail = val;
+                localStorage.setItem("emergencyContactEmail", emergencyEmail);
+                updateEmailDisplays();
+                closeModal();
+                showToast(`Emergency contact updated to: ${emergencyEmail}`, "success");
+            } else {
+                alert("Please enter a valid email address.");
+            }
+        });
+
+        // Toast Notification System
+        function showToast(message, type = "info") {
+            const container = document.getElementById("toastContainer");
+            const toast = document.createElement("div");
+            
+            const bgClass = (type === "success") 
+                ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-200"
+                : (type === "warning")
+                ? "bg-rose-600 text-white border-rose-500 shadow-rose-200"
+                : "bg-slate-800 text-white border-slate-700 shadow-slate-200";
+
+            toast.className = `p-3.5 rounded-xl border shadow-lg text-xs font-semibold flex items-center justify-between gap-3 pointer-events-auto toast-animate ${bgClass}`;
+            toast.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <i data-lucide="${type === 'success' ? 'check-circle' : type === 'warning' ? 'alert-triangle' : 'info'}" class="w-4 h-4 flex-shrink-0"></i>
+                    <span>${message}</span>
+                </div>
+                <button class="opacity-70 hover:opacity-100 p-0.5"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            toast.querySelector("button").addEventListener("click", () => toast.remove());
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transform = "translateX(100%)";
+                toast.style.transition = "all 0.3s ease";
+                setTimeout(() => toast.remove(), 300);
+            }, 5500);
+        }
+
+        // Email Dispatch Engine
+        async function sendEmergencyAlertEmail(payload) {
+            showToast(`🚨 Sending Emergency Alert to ${payload.to_email}...`, "warning");
+            try {
+                const res = await fetch("/api/send-alert", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                lastEmailDispatchVal.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                if (data.email_sent) {
+                    showToast(`📧 SOS Email Delivered to ${payload.to_email}!`, "success");
+                } else {
+                    showToast(`⚠️ SOS Alert Registered for ${payload.to_email}`, "info");
+                }
+            } catch (err) {
+                console.warn("API dispatch error, recorded locally:", err);
+                lastEmailDispatchVal.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                showToast(`🚨 Emergency SOS logged for ${payload.to_email}`, "warning");
+            }
+        }
+
+        function triggerTestEmail() {
+            if (!emergencyEmail) {
+                openModal();
+                showToast("Please enter the emergency contact email address to receive alerts.", "warning");
+                return;
+            }
+            sendEmergencyAlertEmail({
+                to_email: emergencyEmail,
+                level: "TEST_VERIFICATION",
+                drowsiness: 100,
+                closed_seconds: 2.5,
+                incident_type: "MANUAL_TEST_VERIFICATION",
+                timestamp: new Date().toLocaleString()
+            });
+        }
+
+        sendTestEmailBtn.addEventListener("click", triggerTestEmail);
+        modalTestEmailBtn.addEventListener("click", triggerTestEmail);
 
         // Sensitivity slider listeners
         earSlider.addEventListener("input", (e) => {
@@ -485,12 +750,12 @@
         toggleAudioBtn.addEventListener("click", () => {
             isAudioMuted = !isAudioMuted;
             if (isAudioMuted) {
-                volumeText.textContent = "Audio Alarm: MUTED";
+                volumeText.textContent = "Audio: MUTED";
                 volumeIcon.classList.remove("text-emerald-600");
                 volumeIcon.classList.add("text-rose-600");
                 volumeIcon.setAttribute("data-lucide", "volume-x");
             } else {
-                volumeText.textContent = "Audio Alarm: ON";
+                volumeText.textContent = "Audio: ON";
                 volumeIcon.classList.remove("text-rose-600");
                 volumeIcon.classList.add("text-emerald-600");
                 volumeIcon.setAttribute("data-lucide", "volume-2");
@@ -762,6 +1027,71 @@
 
             if (level !== "NORMAL" && closedFrames === ALERT_FRAMES) {
                 totalAlerts++;
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // AUTOMATED SLEEP / FAINT EMERGENCY EMAIL DISPATCH LOGIC
+            // ─────────────────────────────────────────────────────────────
+            const currentTimestampMs = Date.now();
+            
+            // Condition 1: Driver eyes closed for >= 35 frames (~1.8-2.0s: Sleep / Faint)
+            if (closedFrames >= SLEEP_FAINT_FRAMES && !criticalFaintActive) {
+                criticalFaintActive = true;
+                criticalEpisodeStartTime = currentTimestampMs;
+                sleepIncidentCount++;
+                sleepIncidentVal.textContent = sleepIncidentCount;
+
+                // Check Cooldown before emailing
+                if ((currentTimestampMs - lastEmailSentTime) > emailCooldownMs) {
+                    lastEmailSentTime = currentTimestampMs;
+                    const closedSecs = (closedFrames / (fps || 20)).toFixed(1);
+                    if (emergencyEmail) {
+                        sendEmergencyAlertEmail({
+                            to_email: emergencyEmail,
+                            level: "CRITICAL",
+                            drowsiness: Math.round(drowsiness),
+                            closed_seconds: parseFloat(closedSecs),
+                            incident_type: "DRIVER_ASLEEP_OR_FAINTED",
+                            timestamp: new Date().toLocaleString()
+                        });
+                    } else {
+                        showToast("🚨 DRIVER FAINT/SLEEP DETECTED! Click 'Set Emergency Email' to send SOS alerts.", "warning");
+                    }
+                }
+            }
+
+            // Condition 2: Frequent micro-sleeps (3 or more drowsiness episodes)
+            if (sleepIncidentCount >= 3 && closedFrames === ALERT_FRAMES) {
+                if ((currentTimestampMs - lastEmailSentTime) > emailCooldownMs) {
+                    lastEmailSentTime = currentTimestampMs;
+                    if (emergencyEmail) {
+                        sendEmergencyAlertEmail({
+                            to_email: emergencyEmail,
+                            level: "HIGH_FATIGUE",
+                            drowsiness: Math.round(drowsiness),
+                            closed_seconds: 0.5,
+                            incident_type: "MULTIPLE_MICRO_SLEEP_INCIDENTS",
+                            timestamp: new Date().toLocaleString()
+                        });
+                    }
+                }
+            }
+
+            // Condition 3: Safe Recovery Notice after sleep/faint episode ended
+            if (criticalFaintActive && level === "NORMAL") {
+                const totalFaintDuration = ((currentTimestampMs - criticalEpisodeStartTime) / 1000).toFixed(1);
+                criticalFaintActive = false;
+                showToast(`✅ Driver Awake & Alert after ${totalFaintDuration}s faint episode. Status Normal.`, "success");
+                if (emergencyEmail && totalFaintDuration >= 2.0) {
+                    sendEmergencyAlertEmail({
+                        to_email: emergencyEmail,
+                        level: "SAFE_RECOVERY",
+                        drowsiness: 0,
+                        closed_seconds: parseFloat(totalFaintDuration),
+                        incident_type: "DRIVER_AWAKE_AND_RECOVERED",
+                        timestamp: new Date().toLocaleString()
+                    });
+                }
             }
 
             // Instant Danger Sound Trigger

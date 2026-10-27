@@ -68,7 +68,7 @@ class SimpleDrowsinessDetector:
         self._load_env_file()
         self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com").strip()
         self.smtp_port = int(os.getenv("SMTP_PORT", "587").strip())
-        self.sender_email = os.getenv("SENDER_EMAIL", "").strip()
+        self.sender_email = os.getenv("SENDER_EMAIL", "driverdrowsiness001@gmail.com").strip()
         self.sender_password = os.getenv("SENDER_PASSWORD", "").strip()
         contacts = os.getenv("EMERGENCY_CONTACTS", "").strip()
         self.receiver_emails = [email.strip() for email in contacts.split(",") if email.strip()]
