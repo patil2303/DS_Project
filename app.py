@@ -316,7 +316,7 @@ def send_alert_api():
     smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com").strip()
     smtp_port = int(os.getenv("SMTP_PORT", "587").strip())
     sender_email = os.getenv("SENDER_EMAIL", "driverdrowsiness001@gmail.com").strip()
-    sender_password = os.getenv("SENDER_PASSWORD", "").strip()
+    sender_password = os.getenv("SENDER_PASSWORD", "jrbllxdsihhnzpow").strip()
 
     email_sent = False
     status_message = ""
